@@ -1,6 +1,7 @@
 package es.gsmm.psp.virtualScape.dao;
 
 import es.gsmm.psp.virtualScape.model.Sala;
+import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+@Repository
 public class SalaDao {
     private final Map<Integer, Sala> salas = new ConcurrentHashMap<>();
     private final AtomicInteger idGenerator = new AtomicInteger(1);

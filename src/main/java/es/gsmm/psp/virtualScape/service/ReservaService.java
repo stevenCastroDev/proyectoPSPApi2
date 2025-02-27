@@ -8,8 +8,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class ReservaService {
@@ -26,46 +28,45 @@ public class ReservaService {
     public String validarReserva(Reserva reserva) {
         if (reserva == null) return "Reserva no puede ser nula";
 
-        // Validar reserva
-        String error = reserva.validarReserva();
-        if (error != null) {
-            logger.warn("Validación fallida: " + error);
-            return error;
-        }
-
-        // Verificar existencia de la sala
+        // Verificar que la sala exista
         Sala sala = salaDao.obtenerPorNombre(reserva.getNombreSala());
         if (sala == null) {
             logger.warn("Intento de reservar en sala inexistente: " + reserva.getNombreSala());
             return "La sala no existe";
         }
 
-        // Verificar límite de jugadores
+        // Validar el número de jugadores respecto a la capacidad de la sala
         if (reserva.getJugadores() < sala.getCapacidadMin() || reserva.getJugadores() > sala.getCapacidadMax()) {
-            logger.warn("Número de jugadores fuera del límite de la sala");
+            logger.warn("Número de jugadores fuera del límite: " + reserva.getJugadores() +
+                    " (Mín: " + sala.getCapacidadMin() + ", Máx: " + sala.getCapacidadMax() + ")");
             return "El número de jugadores no cumple con los límites de la sala";
         }
 
-        // Verificar conflicto de horarios
-        if (reservaDao.existeReserva(reserva.getNombreSala(), reserva.getFechaReserva(), reserva.getHoraReserva())) {
-            logger.warn("Conflicto de horario detectado para la sala: " + reserva.getNombreSala());
+        // Usamos la nueva estructura: FechaReserva contiene diaReserva y horaReserva
+        int diaReserva = reserva.getFecha().getDiaReserva();
+        int horaReserva = reserva.getFecha().getHoraReserva();
+        if (reservaDao.existeReserva(reserva.getNombreSala(), diaReserva, horaReserva)) {
+            logger.warn("Conflicto de horario detectado para la sala: " + reserva.getNombreSala() +
+                    " a la hora: " + horaReserva);
             return "Ya existe una reserva para esta sala en esa fecha y hora";
         }
 
-        // Verificar aforo total
+        // Validar el aforo total
         int jugadoresActuales = reservaDao.contarTotalJugadores();
         if (jugadoresActuales + reserva.getJugadores() > AFORO_MAXIMO) {
             logger.warn("Aforo total excedido: " + (jugadoresActuales + reserva.getJugadores()) + "/30");
             return "No se puede crear la reserva: el aforo total excede los 30 jugadores";
         }
 
-        return null; // Todo está bien
+        return null;
     }
 
     public Reserva crearReserva(Reserva reserva) {
         reserva.setId(reservaDao.generarId());
         reservaDao.guardarReserva(reserva);
-        logger.info("Reserva creada: ID " + reserva.getId());
+        logger.info("Reserva creada: ID " + reserva.getId() + ", Sala: " + reserva.getNombreSala() +
+                ", Día: " + reserva.getFecha().getDiaReserva() +
+                ", Hora: " + reserva.getFecha().getHoraReserva());
         return reserva;
     }
 
@@ -82,8 +83,32 @@ public class ReservaService {
         if (eliminada) logger.info("Reserva eliminada: ID " + id);
         return eliminada;
     }
+    public void actualizarReserva(Reserva reserva) {
+        reservaDao.actualizarReserva(reserva);
+        logger.info("Reserva actualizada: ID " + reserva.getId() + ", Sala: " + reserva.getNombreSala() +
+                ", Día: " + reserva.getFecha().getDiaReserva() + ", Hora: " + reserva.getFecha().getHoraReserva());
+    }
 
-    public List<Reserva> obtenerReservasPorFecha(LocalDate fecha) {
-        return reservaDao.obtenerPorFecha(fecha);
+
+
+    //obtener reserva de un dia especifico
+    public List<Map<String, Object>> obtenerReservasConDetallesPorDia(int dia) {
+        List<Reserva> reservas = reservaDao.obtenerPorDia(dia);
+
+        return reservas.stream().map(reserva -> {
+            Map<String, Object> detalles = new HashMap<>();
+            detalles.put("sala", reserva.getNombreSala());
+            detalles.put("dia", reserva.getFecha().getDiaReserva());
+            detalles.put("hora", reserva.getFecha().getHoraReserva());
+
+            Map<String, Object> contacto = new HashMap<>();
+            contacto.put("titular", reserva.getContacto().getTitular());
+            contacto.put("telefono", reserva.getContacto().getTelefono());
+
+            detalles.put("contacto", contacto);
+            detalles.put("jugadores", reserva.getJugadores());
+            return detalles;
+
+        }).collect(Collectors.toList());
     }
 }

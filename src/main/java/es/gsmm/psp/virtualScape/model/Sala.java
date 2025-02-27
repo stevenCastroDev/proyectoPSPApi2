@@ -50,7 +50,15 @@ public class Sala {
     }
 
     public String validarSala() {
-        // TODO  terminar de configurar el metodo para validar las reservas
-        return null;
+        if (nombre == null || nombre.trim().isEmpty()) {
+            return "El nombre de la sala es obligatorio";
+        }
+        if (capacidadMin < 1 || capacidadMax > 8 || capacidadMin > capacidadMax) {
+            return "La capacidad mínima debe ser al menos 1 y la máxima no puede superar 8 jugadores";
+        }
+        if (tematicas == null || tematicas.isEmpty()) {
+            return "La sala debe tener al menos una temática";
+        }
+        return null; // Sin errores
     }
 }
